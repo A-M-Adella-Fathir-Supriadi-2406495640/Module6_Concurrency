@@ -30,3 +30,39 @@
 
 ### Kesimpulan
 Milestone pertama ini memberikan gambaran nyata tentang bagaimana sebuah web server bekerja di level paling dasar. Dengan Rust, kita bisa membangun server dari nol tanpa framework apapun, sekaligus belajar konsep jaringan TCP dan protokol HTTP secara langsung. Server yang dibuat masih sangat sederhana karena belum mengirimkan respons apapun ke browser, namun fondasi ini menjadi titik awal yang penting untuk memahami cara kerja web server sesungguhnya di balik framework seperti Django.
+
+
+# Commit 2 Reflection Notes
+
+## Returning HTML
+
+### Tantangan
+- Memahami format HTTP response yang valid agar browser bisa me-render HTML dengan benar
+- Mengetahui bahwa `hello.html` harus berada di direktori yang sama saat `cargo run` dijalankan
+- Memahami pentingnya header `Content-Length` dan mengapa browser membutuhkannya
+- Memastikan response ditulis ke stream dengan format `\r\n` yang tepat sesuai standar HTTP
+
+---
+
+### Apa yang Dilakukan
+- Menambahkan `fs` dari standard library untuk membaca file HTML dari disk
+- Membuat file `hello.html` dengan konten sederhana sebagai halaman yang akan ditampilkan
+- Memodifikasi `handle_connection` agar membentuk HTTP response lengkap dan mengirimkannya ke browser
+- Menggunakan `stream.write_all()` untuk menulis response sebagai bytes ke koneksi TCP
+
+---
+
+### Apa yang Didapat
+- Memahami struktur HTTP response: *status line*, *headers*, baris kosong, lalu *body*
+- Mengetahui fungsi `Content-Length` sebagai header yang memberitahu browser seberapa banyak byte yang harus dibaca sebagai body
+- Memahami bahwa `fs::read_to_string()` membaca seluruh isi file sekaligus ke dalam `String`
+- Mengetahui cara menggunakan `format!()` untuk menyusun response string secara dinamis
+- Memahami bahwa HTTP response pada dasarnya hanya bytes yang dikirim melalui TCP stream
+
+---
+
+### Kesimpulan
+Pada milestone ini, server kita akhirnya bisa mengembalikan sesuatu yang nyata ke browser. Kuncinya adalah memahami bahwa HTTP response memiliki struktur yang ketat: status line, diikuti headers, diikuti satu baris kosong (`\r\n\r\n`), barulah body HTML. Tanpa `Content-Length` yang benar, browser tidak akan tahu kapan harus berhenti membaca data. Ini memperlihatkan bahwa komunikasi web sebenarnya hanyalah pertukaran teks terstruktur di atas TCP, dan framework seperti Django hanya menyembunyikan kompleksitas ini di balik abstraksi yang lebih tinggi.
+
+![WhatsApp Image 2026-04-21 at 6.23.54 PM.jpeg](../../Downloads/WhatsApp%20Image%202026-04-21%20at%206.23.54%20PM.jpeg)
+![WhatsApp Image 2026-04-21 at 6.24.04 PM.jpeg](../../Downloads/WhatsApp%20Image%202026-04-21%20at%206.24.04%20PM.jpeg)
