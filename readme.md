@@ -165,3 +165,48 @@ Di dunia nyata, jika ada satu request berat (misalnya query database yang lama),
 
 ### Kesimpulan
 Milestone ini secara efektif memperlihatkan kelemahan fundamental dari single-threaded server melalui simulasi yang sederhana namun nyata. Dengan hanya dua tab browser, kita sudah bisa merasakan betapa tidak responsifnya server ketika ada satu request yang lambat. Ini menjadi motivasi kuat untuk milestone berikutnya, yaitu implementasi thread pool agar server dapat menangani banyak request secara bersamaan tanpa saling memblokir.
+
+
+# Commit 5 Reflection Notes
+
+## Multithreaded Server Using Threadpool
+
+### Tantangan
+- Memahami konsep *thread pool* dan mengapa lebih baik dibanding membuat thread baru untuk setiap request
+- Memahami penggunaan `Arc<Mutex<T>>` untuk berbagi data antar thread secara aman
+- Memahami cara kerja `mpsc::channel` sebagai jalur komunikasi antara main thread dan worker threads
+- Memahami mengapa `Job` didefinisikan sebagai `Box<dyn FnOnce() + Send + 'static>`
+- Mengimplementasikan `Drop` trait agar server bisa shutdown dengan bersih tanpa resource leak
+
+---
+
+### Apa yang Dilakukan
+- Membuat file `src/lib.rs` yang berisi implementasi `ThreadPool`, `Worker`, dan tipe `Job`
+- Mengubah `main.rs` agar menggunakan `ThreadPool::new(4)` sebagai pengganti pemanggilan langsung `handle_connection`
+- Mengganti `handle_connection(stream)` dengan `pool.execute(|| { handle_connection(stream); })`
+- Mengimplementasikan `Drop` trait pada `ThreadPool` untuk graceful shutdown semua worker
+
+---
+
+### Apa yang Didapat
+- Memahami bahwa `ThreadPool` membuat sejumlah thread worker di awal (`Vec<Worker>`), lalu mendistribusikan job ke worker yang tersedia — ini menghindari overhead membuat thread baru setiap ada request
+- Memahami peran `mpsc::channel`: `sender` dipegang oleh `ThreadPool` untuk mengirim job, sedangkan `receiver` dibungkus `Arc<Mutex<>>` agar bisa dibagi ke semua worker secara aman
+- Memahami `Arc` (*Atomic Reference Counted*): memungkinkan satu data dimiliki oleh banyak thread sekaligus dengan reference counting yang thread-safe
+- Memahami `Mutex`: memastikan hanya satu worker yang bisa mengakses `receiver` pada satu waktu, mencegah *race condition*
+- Memahami bahwa `Box<dyn FnOnce() + Send + 'static>` adalah tipe yang fleksibel untuk menyimpan closure apapun yang bisa dikirim antar thread dan hanya perlu dipanggil sekali
+- Memahami graceful shutdown: `Drop` di-trigger secara otomatis saat `ThreadPool` keluar dari scope — `sender` di-drop terlebih dahulu sehingga semua worker menerima error dari `recv()` dan keluar dari loop dengan bersih
+
+---
+
+### Bagaimana ThreadPool Bekerja
+1. `ThreadPool::new(4)` membuat 4 `Worker`, masing-masing langsung menjalankan thread yang menunggu job dari channel
+2. Setiap kali ada koneksi masuk, `pool.execute(|| { handle_connection(stream); })` mengirim closure sebagai `Job` melalui `sender`
+3. Salah satu worker yang sedang idle akan mengambil job tersebut dari `receiver` (dilindungi `Mutex`), lalu menjalankannya
+4. Karena ada 4 worker, server kini bisa menangani hingga 4 request secara bersamaan tanpa saling memblokir
+5. Ketika server dimatikan, `Drop` memastikan semua worker selesai mengerjakan job yang sedang berjalan sebelum thread benar-benar dihentikan via `thread.join()`
+
+---
+
+### Kesimpulan
+Milestone ini adalah puncak dari perjalanan membangun web server dari nol. Dengan mengimplementasikan `ThreadPool` sendiri, kita tidak hanya menyelesaikan masalah single-threaded blocking dari milestone sebelumnya, tetapi juga memahami secara mendalam bagaimana concurrency yang aman dibangun di Rust menggunakan `Arc`, `Mutex`, dan `mpsc::channel`. Server kita kini bisa melayani banyak request secara paralel tanpa data race — sesuatu yang dijamin oleh Rust di waktu kompilasi, bukan runtime. Ini menunjukkan mengapa Rust dikenal sebagai bahasa yang ideal untuk sistem yang membutuhkan performa tinggi sekaligus keamanan memori.
+
