@@ -68,3 +68,63 @@ Pada milestone ini, server kita akhirnya bisa mengembalikan sesuatu yang nyata k
 <img width="1600" height="269" alt="WhatsApp Image 2026-04-21 at 6 23 54 PM" src="https://github.com/user-attachments/assets/bf960d2e-f18f-493b-b16f-903b01c93ee9" />
 <img width="1600" height="371" alt="WhatsApp Image 2026-04-21 at 6 24 04 PM" src="https://github.com/user-attachments/assets/35234def-8781-46f6-8f9b-409000d0debf" />
 
+# Commit 3 Reflection Notes
+
+## Validating Request and Selectively Responding
+
+### Tantangan
+- Memahami cara membaca baris pertama HTTP request untuk menentukan path yang diminta
+- Membuat logika percabangan yang tepat untuk membedakan request valid dan tidak valid
+- Membuat file `404.html` yang terpisah sebagai halaman error
+- Memahami mengapa refactoring diperlukan agar kode tidak repetitif
+
+---
+
+### Apa yang Dilakukan
+- Mengambil baris pertama HTTP request (`request_line`) sebagai penentu routing
+- Menambahkan logika `if-else` untuk membedakan request `GET / HTTP/1.1` dengan request lainnya
+- Membuat file `404.html` sebagai halaman yang ditampilkan ketika path tidak ditemukan
+- Melakukan refactoring dengan memisahkan penentuan `status_line` dan `filename` dari logika pembentukan response
+
+---
+
+### Apa yang Didapat
+- Memahami bahwa routing di level paling dasar hanyalah pengecekan string pada baris pertama HTTP request
+- Mengetahui perbedaan HTTP status code `200 OK` (sukses) dan `404 NOT FOUND` (tidak ditemukan)
+- Memahami pentingnya refactoring: sebelum refactoring, blok `if` dan `else` masing-masing memiliki kode pembentukan response yang hampir identik — ini melanggar prinsip *DRY (Don't Repeat Yourself)*
+- Setelah refactoring, hanya `status_line` dan `filename` yang berbeda antar kondisi, sementara logika membaca file dan membentuk response cukup ditulis sekali
+- Memahami bahwa tuple `(status_line, filename)` bisa digunakan sebagai cara elegan untuk mengembalikan dua nilai sekaligus dari sebuah ekspresi `if-else` di Rust
+
+---
+
+### Mengapa Refactoring Diperlukan
+Sebelum refactoring, kode terlihat seperti ini:
+
+```rust
+if request_line == "GET / HTTP/1.1" {
+    // baca hello.html, bentuk response, kirim
+} else {
+    // baca 404.html, bentuk response, kirim
+}
+```
+
+Masalahnya, logika membentuk dan mengirim response (`format!`, `write_all`) ditulis dua kali dengan isi yang hampir sama. Jika suatu saat kita ingin mengubah format response, kita harus mengubah di dua tempat sekaligus — rawan bug dan susah di-maintain.
+
+Setelah refactoring:
+
+```rust
+let (status_line, filename) = if request_line == "GET / HTTP/1.1" {
+    ("HTTP/1.1 200 OK", "hello.html")
+} else {
+    ("HTTP/1.1 404 NOT FOUND", "404.html")
+};
+// logika membentuk dan mengirim response cukup ditulis sekali
+```
+
+Dengan memisahkan bagian yang *berbeda* (status dan filename) dari bagian yang *sama* (membaca file, format, kirim), kode menjadi lebih bersih, lebih mudah dibaca, dan lebih mudah dikembangkan.
+
+---
+
+### Kesimpulan
+Milestone ini mengajarkan konsep dasar routing dan error handling di level HTTP. Server kita kini sudah bisa membedakan request yang valid dan tidak valid, lalu merespons dengan halaman yang sesuai. Proses refactoring yang dilakukan juga memperjelas bahwa kode yang bersih bukan hanya tentang "bisa jalan", tapi juga tentang kemudahan pemeliharaan ke depannya. Inilah fondasi dari bagaimana framework web modern menangani routing dan error page secara otomatis di balik layar.
+
