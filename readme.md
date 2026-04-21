@@ -128,3 +128,40 @@ Dengan memisahkan bagian yang *berbeda* (status dan filename) dari bagian yang *
 ### Kesimpulan
 Milestone ini mengajarkan konsep dasar routing dan error handling di level HTTP. Server kita kini sudah bisa membedakan request yang valid dan tidak valid, lalu merespons dengan halaman yang sesuai. Proses refactoring yang dilakukan juga memperjelas bahwa kode yang bersih bukan hanya tentang "bisa jalan", tapi juga tentang kemudahan pemeliharaan ke depannya. Inilah fondasi dari bagaimana framework web modern menangani routing dan error page secara otomatis di balik layar.
 
+# Commit 4 Reflection Notes
+
+## Simulation of Slow Request
+
+### Tantangan
+- Memahami mengapa single-threaded server menjadi masalah besar ketika ada request yang lambat
+- Mensimulasikan kondisi nyata di mana satu request bisa memblokir request lainnya
+- Memahami penggunaan `thread::sleep` dan `Duration` untuk membuat delay buatan
+- Memahami perbedaan antara `match` dan `if-else` dan kapan sebaiknya menggunakan masing-masing
+
+---
+
+### Apa yang Dilakukan
+- Menambahkan `thread` dan `time::Duration` ke dalam `use std::{}` imports
+- Mengganti logika `if-else` dengan `match` untuk routing yang lebih bersih dan scalable
+- Menambahkan endpoint baru `/sleep` yang mensimulasikan slow request dengan `thread::sleep(Duration::from_secs(10))`
+- Menguji server dengan membuka dua tab browser secara bersamaan: satu ke `/sleep` dan satu ke `/`
+
+---
+
+### Apa yang Didapat
+- Memahami secara langsung dampak nyata dari single-threaded server: ketika satu tab mengakses `/sleep`, tab lain yang mengakses `/` ikut tertahan dan harus menunggu 10 detik
+- Memahami bahwa `thread::sleep` menghentikan eksekusi seluruh thread, bukan hanya satu koneksi — ini yang menjadi inti masalah
+- Mengetahui bahwa `match` lebih cocok dari `if-else` untuk routing karena lebih mudah dikembangkan dengan menambah *arm* baru, dan wildcard `_` menangani semua kasus yang tidak terdefinisi
+- Mengetahui bahwa server produksi nyata harus mampu menangani banyak request secara bersamaan, yang tidak bisa dicapai dengan pendekatan single-threaded seperti ini
+
+---
+
+### Mengapa Ini Menjadi Masalah
+Server kita hanya memiliki satu thread. Artinya, setiap request diproses secara berurutan — satu per satu. Ketika browser pertama mengakses `/sleep`, server masuk ke `thread::sleep` selama 10 detik. Selama waktu itu, server tidak bisa menerima atau memproses request apapun. Browser kedua yang mengakses `/` harus antre dan menunggu hingga request pertama selesai, meskipun request kedua itu sebenarnya sangat ringan.
+
+Di dunia nyata, jika ada satu request berat (misalnya query database yang lama), semua pengguna lain akan ikut merasakan kelambatannya. Inilah alasan mengapa web server modern menggunakan multi-threading atau async I/O.
+
+---
+
+### Kesimpulan
+Milestone ini secara efektif memperlihatkan kelemahan fundamental dari single-threaded server melalui simulasi yang sederhana namun nyata. Dengan hanya dua tab browser, kita sudah bisa merasakan betapa tidak responsifnya server ketika ada satu request yang lambat. Ini menjadi motivasi kuat untuk milestone berikutnya, yaitu implementasi thread pool agar server dapat menangani banyak request secara bersamaan tanpa saling memblokir.
