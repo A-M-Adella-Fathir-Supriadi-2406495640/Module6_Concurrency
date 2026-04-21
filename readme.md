@@ -210,3 +210,92 @@ Milestone ini secara efektif memperlihatkan kelemahan fundamental dari single-th
 ### Kesimpulan
 Milestone ini adalah puncak dari perjalanan membangun web server dari nol. Dengan mengimplementasikan `ThreadPool` sendiri, kita tidak hanya menyelesaikan masalah single-threaded blocking dari milestone sebelumnya, tetapi juga memahami secara mendalam bagaimana concurrency yang aman dibangun di Rust menggunakan `Arc`, `Mutex`, dan `mpsc::channel`. Server kita kini bisa melayani banyak request secara paralel tanpa data race — sesuatu yang dijamin oleh Rust di waktu kompilasi, bukan runtime. Ini menunjukkan mengapa Rust dikenal sebagai bahasa yang ideal untuk sistem yang membutuhkan performa tinggi sekaligus keamanan memori.
 
+# Commit 5 Reflection Notes
+
+## Multithreaded Server Using Threadpool
+
+### Tantangan
+- Memahami konsep *thread pool* dan mengapa lebih baik dibanding membuat thread baru untuk setiap request
+- Memahami penggunaan `Arc<Mutex<T>>` untuk berbagi data antar thread secara aman
+- Memahami cara kerja `mpsc::channel` sebagai jalur komunikasi antara main thread dan worker threads
+- Memahami mengapa `Job` didefinisikan sebagai `Box<dyn FnOnce() + Send + 'static>`
+- Mengimplementasikan `Drop` trait agar server bisa shutdown dengan bersih tanpa resource leak
+
+---
+
+### Apa yang Dilakukan
+- Membuat file `src/lib.rs` yang berisi implementasi `ThreadPool`, `Worker`, dan tipe `Job`
+- Mengubah `main.rs` agar menggunakan `ThreadPool::new(4)` sebagai pengganti pemanggilan langsung `handle_connection`
+- Mengganti `handle_connection(stream)` dengan `pool.execute(|| { handle_connection(stream); })`
+- Mengimplementasikan `Drop` trait pada `ThreadPool` untuk graceful shutdown semua worker
+
+---
+
+### Apa yang Didapat
+- Memahami bahwa `ThreadPool` membuat sejumlah thread worker di awal (`Vec<Worker>`), lalu mendistribusikan job ke worker yang tersedia — ini menghindari overhead membuat thread baru setiap ada request
+- Memahami peran `mpsc::channel`: `sender` dipegang oleh `ThreadPool` untuk mengirim job, sedangkan `receiver` dibungkus `Arc<Mutex<>>` agar bisa dibagi ke semua worker secara aman
+- Memahami `Arc` (*Atomic Reference Counted*): memungkinkan satu data dimiliki oleh banyak thread sekaligus dengan reference counting yang thread-safe
+- Memahami `Mutex`: memastikan hanya satu worker yang bisa mengakses `receiver` pada satu waktu, mencegah *race condition*
+- Memahami bahwa `Box<dyn FnOnce() + Send + 'static>` adalah tipe yang fleksibel untuk menyimpan closure apapun yang bisa dikirim antar thread dan hanya perlu dipanggil sekali
+- Memahami graceful shutdown: `Drop` di-trigger secara otomatis saat `ThreadPool` keluar dari scope — `sender` di-drop terlebih dahulu sehingga semua worker menerima error dari `recv()` dan keluar dari loop dengan bersih
+
+---
+
+### Bagaimana ThreadPool Bekerja
+1. `ThreadPool::new(4)` membuat 4 `Worker`, masing-masing langsung menjalankan thread yang menunggu job dari channel
+2. Setiap kali ada koneksi masuk, `pool.execute(|| { handle_connection(stream); })` mengirim closure sebagai `Job` melalui `sender`
+3. Salah satu worker yang sedang idle akan mengambil job tersebut dari `receiver` (dilindungi `Mutex`), lalu menjalankannya
+4. Karena ada 4 worker, server kini bisa menangani hingga 4 request secara bersamaan tanpa saling memblokir
+5. Ketika server dimatikan, `Drop` memastikan semua worker selesai mengerjakan job yang sedang berjalan sebelum thread benar-benar dihentikan via `thread.join()`
+
+---
+
+### Kesimpulan
+Milestone ini adalah puncak dari perjalanan membangun web server dari nol. Dengan mengimplementasikan `ThreadPool` sendiri, kita tidak hanya menyelesaikan masalah single-threaded blocking dari milestone sebelumnya, tetapi juga memahami secara mendalam bagaimana concurrency yang aman dibangun di Rust menggunakan `Arc`, `Mutex`, dan `mpsc::channel`. Server kita kini bisa melayani banyak request secara paralel tanpa data race — sesuatu yang dijamin oleh Rust di waktu kompilasi, bukan runtime. Ini menunjukkan mengapa Rust dikenal sebagai bahasa yang ideal untuk sistem yang membutuhkan performa tinggi sekaligus keamanan memori.
+
+
+
+# Commit Bonus Reflection Notes
+
+## Function Improvement: `build` vs `new`
+
+### Tantangan
+- Memahami perbedaan filosofi antara fungsi `new` dan `build` dalam Rust
+- Mengubah return type dari `ThreadPool` menjadi `Result<ThreadPool, &'static str>`
+- Menyesuaikan pemanggilan di `main.rs` agar menggunakan `.unwrap()` setelah `build()`
+- Memahami kapan sebaiknya menggunakan `panic` vs mengembalikan `Result`
+
+---
+
+### Apa yang Dilakukan
+- Mengganti fungsi `new` dengan fungsi `build` pada `impl ThreadPool` di `lib.rs`
+- Mengubah return type menjadi `Result<ThreadPool, &'static str>` agar error bisa ditangani secara eksplisit
+- Mengganti `assert!(size > 0)` dengan `if size == 0 { return Err("ThreadPool size must be greater than zero"); }`
+- Mengubah nilai return dari `ThreadPool { ... }` menjadi `Ok(ThreadPool { ... })`
+- Memperbarui `main.rs` untuk menggunakan `ThreadPool::build(4).unwrap()` sebagai pengganti `ThreadPool::new(4)`
+
+---
+
+### Apa yang Didapat
+- Memahami konvensi Rust: fungsi `new` secara idiomatis diasumsikan **selalu berhasil** — jika gagal, ia boleh `panic`. Oleh karena itu, `new` tidak cocok digunakan ketika ada kondisi input yang bisa invalid
+- Memahami bahwa fungsi `build` lebih tepat digunakan ketika proses pembuatan objek bisa gagal, karena ia mengembalikan `Result` yang memaksa pemanggil untuk menangani kemungkinan error secara eksplisit
+- Memahami perbedaan `assert!` vs `Err`: `assert!` langsung menyebabkan *panic* dan crash program, sedangkan `Err` memberikan kontrol kepada pemanggil untuk memutuskan cara menangani error — jauh lebih fleksibel untuk kode produksi
+- Memahami bahwa `&'static str` sebagai tipe error cocok untuk pesan error sederhana yang sudah diketahui di waktu kompilasi
+
+---
+
+### Perbandingan `new` vs `build`
+
+| Aspek | `new` | `build` |
+|---|---|---|
+| Return type | `ThreadPool` | `Result<ThreadPool, &'static str>` |
+| Jika input invalid | `panic!` / `assert!` | Mengembalikan `Err(...)` |
+| Error handling | Tidak ada, langsung crash | Diserahkan ke pemanggil |
+| Konvensi Rust | Untuk pembuatan yang dijamin berhasil | Untuk pembuatan yang bisa gagal |
+| Penggunaan di `main.rs` | `ThreadPool::new(4)` | `ThreadPool::build(4).unwrap()` |
+
+---
+
+### Kesimpulan
+Bonus ini mengajarkan prinsip penting dalam desain API Rust: **gunakan `Result` ketika operasi bisa gagal, jangan sembunyikan kemungkinan error di balik `panic`**. Dengan mengubah `new` menjadi `build` yang mengembalikan `Result`, kode kita menjadi lebih robust dan lebih sesuai dengan idiom Rust yang mengutamakan penanganan error secara eksplisit. Di aplikasi produksi nyata, pendekatan ini sangat penting karena `panic` akan menghentikan seluruh program, sementara `Result` memungkinkan program untuk pulih dari kondisi error dengan lebih graceful.
+
