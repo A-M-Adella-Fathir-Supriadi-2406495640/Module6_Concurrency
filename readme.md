@@ -64,5 +64,6 @@ Milestone pertama ini memberikan gambaran nyata tentang bagaimana sebuah web ser
 ### Kesimpulan
 Pada milestone ini, server kita akhirnya bisa mengembalikan sesuatu yang nyata ke browser. Kuncinya adalah memahami bahwa HTTP response memiliki struktur yang ketat: status line, diikuti headers, diikuti satu baris kosong (`\r\n\r\n`), barulah body HTML. Tanpa `Content-Length` yang benar, browser tidak akan tahu kapan harus berhenti membaca data. Ini memperlihatkan bahwa komunikasi web sebenarnya hanyalah pertukaran teks terstruktur di atas TCP, dan framework seperti Django hanya menyembunyikan kompleksitas ini di balik abstraksi yang lebih tinggi.
 
-![WhatsApp Image 2026-04-21 at 6.23.54 PM.jpeg](../../Downloads/WhatsApp%20Image%202026-04-21%20at%206.23.54%20PM.jpeg)
-![WhatsApp Image 2026-04-21 at 6.24.04 PM.jpeg](../../Downloads/WhatsApp%20Image%202026-04-21%20at%206.24.04%20PM.jpeg)
+
+<img width="1600" height="269" alt="WhatsApp Image 2026-04-21 at 6 23 54 PM" src="https://github.com/user-attachments/assets/bf960d2e-f18f-493b-b16f-903b01c93ee9" />
+<img width="1600" height="371" alt="WhatsApp Image 2026-04-21 at 6 24 04 PM" src="https://github.com/user-attachments/assets/35234def-8781-46f6-8f9b-409000d0debf" />
