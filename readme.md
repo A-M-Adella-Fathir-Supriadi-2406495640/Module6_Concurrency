@@ -128,6 +128,9 @@ Dengan memisahkan bagian yang *berbeda* (status dan filename) dari bagian yang *
 ### Kesimpulan
 Milestone ini mengajarkan konsep dasar routing dan error handling di level HTTP. Server kita kini sudah bisa membedakan request yang valid dan tidak valid, lalu merespons dengan halaman yang sesuai. Proses refactoring yang dilakukan juga memperjelas bahwa kode yang bersih bukan hanya tentang "bisa jalan", tapi juga tentang kemudahan pemeliharaan ke depannya. Inilah fondasi dari bagaimana framework web modern menangani routing dan error page secara otomatis di balik layar.
 
+<img width="1600" height="636" alt="WhatsApp Image 2026-04-21 at 7 23 30 PM (1)" src="https://github.com/user-attachments/assets/7456cea0-4cb9-4741-8e5b-a7062c64580b" />
+
+
 # Commit 4 Reflection Notes
 
 ## Simulation of Slow Request
